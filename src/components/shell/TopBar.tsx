@@ -11,6 +11,7 @@ function newActionFor(pathname: string): { label: string; to: string } {
   if (pathname.startsWith('/projects')) return { label: 'New project', to: '/projects?new=1' };
   if (pathname.startsWith('/my-week')) return { label: 'New task', to: '/my-week?newTask=1' };
   if (pathname.startsWith('/money')) return { label: 'New invoice', to: '/money?newInvoice=1' };
+  if (pathname.startsWith('/library')) return { label: 'Add to library', to: '/library?new=1' };
   return { label: 'New lead', to: '/leads?new=1' };
 }
 

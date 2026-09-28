@@ -16,6 +16,14 @@ export function formatZARCompact(value: number): string {
   return `${sign}R ${compactNumber.format(Math.abs(value))}`;
 }
 
+/** 2048 -> "2 KB", 5_300_000 -> "5.1 MB". */
+export function formatBytes(bytes: number | null | undefined): string {
+  if (!bytes) return '–';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 const relativeTime = new Intl.RelativeTimeFormat('en-GB', { numeric: 'auto' });
 
 /** "just now", "5 minutes ago", "yesterday", "3 days ago"; older than a week shows the date. */

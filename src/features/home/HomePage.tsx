@@ -1,5 +1,6 @@
 import { Spinner } from '@/components/Spinner';
-import { useCurrentProfile } from '@/features/auth/profiles';
+import { useRecentActivities } from '@/features/activity/api';
+import { useCurrentProfile, useProfileMap } from '@/features/auth/profiles';
 import { useClients } from '@/features/clients/api';
 import { monthlyRecurring } from '@/features/clients/table/filters';
 import { useLeads } from '@/features/leads/api';
@@ -30,6 +31,8 @@ export function HomePage() {
   const tasksQuery = useTasks();
   const { data: projects = [] } = useProjects();
   const { data: invoices = [] } = useInvoices();
+  const { data: activities = [] } = useRecentActivities();
+  const profiles = useProfileMap();
 
   if (leadsQuery.isPending || clientsQuery.isPending || tasksQuery.isPending) {
     return (
@@ -79,7 +82,15 @@ export function HomePage() {
         <MyTasksCard tasks={tasks} profileId={profile?.id} />
       </div>
 
-      <RecentActivityCard leads={leads} clients={clients} projects={projects} tasks={tasks} invoices={invoices} />
+      <RecentActivityCard
+        activities={activities}
+        profiles={profiles}
+        leads={leads}
+        clients={clients}
+        projects={projects}
+        tasks={tasks}
+        invoices={invoices}
+      />
 
       <TaskDrawerHost defaults={{ assigneeId: profile?.id }} />
     </div>

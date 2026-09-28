@@ -401,6 +401,93 @@ export type Database = {
           },
         ];
       };
+      assets: {
+        Row: {
+          id: string;
+          created_at: string;
+          updated_at: string | null;
+          title: string;
+          type: Database['public']['Enums']['asset_type'];
+          file_path: string | null;
+          file_name: string | null;
+          file_size: number | null;
+          mime_type: string | null;
+          content: string | null;
+          tags: string[];
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string | null;
+          title: string;
+          type?: Database['public']['Enums']['asset_type'];
+          file_path?: string | null;
+          file_name?: string | null;
+          file_size?: number | null;
+          mime_type?: string | null;
+          content?: string | null;
+          tags?: string[];
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string | null;
+          title?: string;
+          type?: Database['public']['Enums']['asset_type'];
+          file_path?: string | null;
+          file_name?: string | null;
+          file_size?: number | null;
+          mime_type?: string | null;
+          content?: string | null;
+          tags?: string[];
+        };
+        Relationships: [];
+      };
+      activities: {
+        Row: {
+          id: string;
+          created_at: string;
+          updated_at: string | null;
+          entity_type: Database['public']['Enums']['activity_entity'];
+          entity_id: string;
+          user_id: string | null;
+          kind: Database['public']['Enums']['activity_kind'];
+          body: string | null;
+          meta: Json | null;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string | null;
+          entity_type: Database['public']['Enums']['activity_entity'];
+          entity_id: string;
+          /** Defaults to the signed-in founder's profile. */
+          user_id?: string | null;
+          kind?: Database['public']['Enums']['activity_kind'];
+          body?: string | null;
+          meta?: Json | null;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string | null;
+          entity_type?: Database['public']['Enums']['activity_entity'];
+          entity_id?: string;
+          user_id?: string | null;
+          kind?: Database['public']['Enums']['activity_kind'];
+          body?: string | null;
+          meta?: Json | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'activities_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Views: { [_ in never]: never };
     Functions: {
@@ -427,6 +514,10 @@ export type Database = {
           p_index: number;
         };
         Returns: undefined;
+      };
+      current_profile_id: {
+        Args: Record<string, never>;
+        Returns: string | null;
       };
     };
     Enums: {
@@ -455,6 +546,9 @@ export type Database = {
       invoice_type: 'setup' | 'retainer' | 'other';
       invoice_status: 'draft' | 'sent' | 'paid' | 'overdue';
       expense_category: 'hosting' | 'api' | 'software' | 'marketing' | 'other';
+      asset_type: 'proposal' | 'questionnaire' | 'guide' | 'prompt' | 'sop' | 'template' | 'other';
+      activity_entity: 'lead' | 'client' | 'project';
+      activity_kind: 'note' | 'call' | 'email' | 'stage_change' | 'status_change';
     };
     CompositeTypes: { [_ in never]: never };
   };

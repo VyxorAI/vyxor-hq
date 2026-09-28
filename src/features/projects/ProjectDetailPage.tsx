@@ -5,6 +5,9 @@ import { Badge } from '@/components/Badge';
 import { Button } from '@/components/Button';
 import { EmptyState } from '@/components/EmptyState';
 import { Spinner } from '@/components/Spinner';
+import { Tabs, type TabItem } from '@/components/Tabs';
+import { ActivityTimeline } from '@/features/activity/ActivityTimeline';
+import { useUpdateParams } from '@/lib/useUpdateParams';
 import { useCurrentProfile } from '@/features/auth/profiles';
 import { useClients } from '@/features/clients/api';
 import { useTasks } from '@/features/tasks/api';
@@ -15,7 +18,13 @@ import { useProjects } from './api';
 import { PROJECT_STATUS_META, PROJECT_TYPE_LABELS } from './constants';
 import { ProjectDrawer } from './ProjectDrawer';
 
-/** /projects/:projectId: header plus the project's task board. */
+type ProjectTab = 'board' | 'activity';
+const PROJECT_TABS: ReadonlyArray<TabItem<ProjectTab>> = [
+  { value: 'board', label: 'Board' },
+  { value: 'activity', label: 'Activity' },
+];
+
+/** /projects/:projectId: header plus the project's task board and activity. URL state: `tab`. */
 export function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const currentProfile = useCurrentProfile();
@@ -24,6 +33,10 @@ export function ProjectDetailPage() {
   const { data: tasks = [] } = useTasks();
   const { openTask, openNewTask } = useTaskDrawerLinks();
   const [editing, setEditing] = useState(false);
+  const [params, updateParams] = useUpdateParams();
+  const tab: ProjectTab = params.get('tab') === 'activity' ? 'activity' : 'board';
+  const setTab = (next: ProjectTab) =>
+    updateParams((p) => (next === 'board' ? p.delete('tab') : p.set('tab', next)), true);
 
   if (isPending) {
     return (
@@ -108,7 +121,16 @@ export function ProjectDetailPage() {
         )}
       </div>
 
-      <TaskBoard tasks={projectTasks} projectId={project.id} onOpenTask={openTask} />
+      <Tabs label="Project sections" items={PROJECT_TABS} value={tab} onChange={setTab} idPrefix="project" />
+      <div id="project-panel" role="tabpanel" aria-labelledby={`project-tab-${tab}`}>
+        {tab === 'board' ? (
+          <TaskBoard tasks={projectTasks} projectId={project.id} onOpenTask={openTask} />
+        ) : (
+          <div className="max-w-3xl">
+            <ActivityTimeline entityType="project" entityId={project.id} />
+          </div>
+        )}
+      </div>
 
       <TaskDrawerHost defaults={{ projectId: project.id, assigneeId: currentProfile?.id }} />
       {editing && <ProjectDrawer project={project} onClose={() => setEditing(false)} />}

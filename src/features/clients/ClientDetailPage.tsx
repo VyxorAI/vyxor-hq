@@ -4,6 +4,7 @@ import { Button } from '@/components/Button';
 import { EmptyState } from '@/components/EmptyState';
 import { Spinner } from '@/components/Spinner';
 import { Tabs, type TabItem } from '@/components/Tabs';
+import { ActivityTimeline } from '@/features/activity/ActivityTimeline';
 import { oneOf } from '@/lib/useUrlFilters';
 import { useUpdateParams } from '@/lib/useUpdateParams';
 import { useClients } from './api';
@@ -20,10 +21,10 @@ const TABS: ReadonlyArray<TabItem<ClientTab>> = [
   { value: 'projects', label: 'Projects' },
   { value: 'tasks', label: 'Tasks' },
   { value: 'invoices', label: 'Invoices' },
-  { value: 'notes', label: 'Notes', disabledHint: 'Phase 3' },
+  { value: 'notes', label: 'Notes' },
 ];
 
-const ENABLED_TABS: readonly ClientTab[] = ['overview', 'projects', 'tasks', 'invoices'];
+const ENABLED_TABS: readonly ClientTab[] = ['overview', 'projects', 'tasks', 'invoices', 'notes'];
 
 /** /clients/:clientId. URL state: `tab` (overview by default). */
 export function ClientDetailPage() {
@@ -79,6 +80,15 @@ export function ClientDetailPage() {
         {tab === 'projects' && <ClientProjectsTab client={client} />}
         {tab === 'tasks' && <ClientTasksTab client={client} />}
         {tab === 'invoices' && <ClientInvoicesTab client={client} />}
+        {tab === 'notes' && (
+          <div className="max-w-3xl">
+            <ActivityTimeline
+              entityType="client"
+              entityId={client.id}
+              related={client.lead_id ? { id: client.lead_id, label: 'from the lead' } : undefined}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

@@ -4,6 +4,8 @@ import { ArrowUpRight, Trash2, Trophy } from 'lucide-react';
 import { Button, IconButton } from '@/components/Button';
 import { Drawer } from '@/components/Drawer';
 import { Modal } from '@/components/Modal';
+import { Tabs, type TabItem } from '@/components/Tabs';
+import { ActivityTimeline } from '@/features/activity/ActivityTimeline';
 import { useToast } from '@/components/Toast';
 import { useCurrentProfile } from '@/features/auth/profiles';
 import { useClientsByLead } from '@/features/clients/api';
@@ -20,6 +22,12 @@ import { LeadForm } from './LeadForm';
 import { toFormValues, toPayload, validateLead } from './leadFormModel';
 
 const FORM_ID = 'lead-form';
+
+type LeadTab = 'details' | 'activity';
+const LEAD_TABS: ReadonlyArray<TabItem<LeadTab>> = [
+  { value: 'details', label: 'Details' },
+  { value: 'activity', label: 'Activity' },
+];
 
 interface LeadDrawerProps {
   open: boolean;
@@ -48,6 +56,7 @@ function LeadEditor({ lead, onClose }: { lead: Lead | undefined; onClose: () => 
   const [confirmDelete, setConfirmDelete] = useState(false);
   // Set while the "Convert to client" drawer is showing
   const [converting, setConverting] = useState<ClientFormValues | null>(null);
+  const [tab, setTab] = useState<LeadTab>('details');
   const saving = createLead.isPending || updateLead.isPending;
 
   function save() {
@@ -158,25 +167,38 @@ function LeadEditor({ lead, onClose }: { lead: Lead | undefined; onClose: () => 
         title={lead ? lead.business_name : 'New lead'}
         subtitle={subtitle}
         footer={
-          <>
-            {lead && (
-              <IconButton
-                icon={Trash2}
-                label="Delete lead"
-                onClick={() => setConfirmDelete(true)}
-                className="hover:bg-danger/15 hover:text-danger"
-              />
-            )}
-            <div className="ml-auto flex flex-wrap justify-end gap-2">
-              {wonAction}
-              <Button type="submit" form={FORM_ID} variant="primary" loading={saving}>
-                {lead ? 'Save changes' : 'Add lead'}
-              </Button>
-            </div>
-          </>
+          tab === 'details' ? (
+            <>
+              {lead && (
+                <IconButton
+                  icon={Trash2}
+                  label="Delete lead"
+                  onClick={() => setConfirmDelete(true)}
+                  className="hover:bg-danger/15 hover:text-danger"
+                />
+              )}
+              <div className="ml-auto flex flex-wrap justify-end gap-2">
+                {wonAction}
+                <Button type="submit" form={FORM_ID} variant="primary" loading={saving}>
+                  {lead ? 'Save changes' : 'Add lead'}
+                </Button>
+              </div>
+            </>
+          ) : undefined
         }
       >
-        <LeadForm id={FORM_ID} values={form.values} errors={form.errors} onChange={form.change} onSubmit={save} />
+        {lead && (
+          <div className="-mt-2 mb-5">
+            <Tabs label="Lead sections" items={LEAD_TABS} value={tab} onChange={setTab} idPrefix="lead" />
+          </div>
+        )}
+        <div id="lead-panel" role={lead ? 'tabpanel' : undefined} aria-labelledby={lead ? `lead-tab-${tab}` : undefined}>
+          {/* Kept mounted so unsaved edits survive a look at the activity */}
+          <div hidden={tab !== 'details'}>
+            <LeadForm id={FORM_ID} values={form.values} errors={form.errors} onChange={form.change} onSubmit={save} />
+          </div>
+          {lead && tab === 'activity' && <ActivityTimeline entityType="lead" entityId={lead.id} />}
+        </div>
       </Drawer>
 
       <Modal
