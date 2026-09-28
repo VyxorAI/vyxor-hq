@@ -18,7 +18,7 @@ export function LoginPage() {
   if (loading) return <FullScreenSpinner />;
   if (session) {
     const from = (location.state as { from?: Location } | null)?.from?.pathname;
-    return <Navigate to={from && from !== '/login' ? from : '/leads'} replace />;
+    return <Navigate to={from && from !== '/login' ? from : '/'} replace />;
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {

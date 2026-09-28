@@ -8,6 +8,7 @@ import { oneOf } from '@/lib/useUrlFilters';
 import { useUpdateParams } from '@/lib/useUpdateParams';
 import { useClients } from './api';
 import { ClientHeader } from './detail/ClientHeader';
+import { ClientInvoicesTab } from './detail/ClientInvoicesTab';
 import { ClientOverview } from './detail/ClientOverview';
 import { ClientProjectsTab } from './detail/ClientProjectsTab';
 import { ClientTasksTab } from './detail/ClientTasksTab';
@@ -18,11 +19,11 @@ const TABS: ReadonlyArray<TabItem<ClientTab>> = [
   { value: 'overview', label: 'Overview' },
   { value: 'projects', label: 'Projects' },
   { value: 'tasks', label: 'Tasks' },
-  { value: 'invoices', label: 'Invoices', disabledHint: 'Phase 2' },
+  { value: 'invoices', label: 'Invoices' },
   { value: 'notes', label: 'Notes', disabledHint: 'Phase 3' },
 ];
 
-const ENABLED_TABS: readonly ClientTab[] = ['overview', 'projects', 'tasks'];
+const ENABLED_TABS: readonly ClientTab[] = ['overview', 'projects', 'tasks', 'invoices'];
 
 /** /clients/:clientId. URL state: `tab` (overview by default). */
 export function ClientDetailPage() {
@@ -77,6 +78,7 @@ export function ClientDetailPage() {
         {tab === 'overview' && <ClientOverview key={client.id} client={client} />}
         {tab === 'projects' && <ClientProjectsTab client={client} />}
         {tab === 'tasks' && <ClientTasksTab client={client} />}
+        {tab === 'invoices' && <ClientInvoicesTab client={client} />}
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/Button';
 import { Modal } from '@/components/Modal';
 import { useToast } from '@/components/Toast';
+import { useInvoices } from '@/features/money/api';
 import { errorMessage } from '@/lib/errors';
 import { useFormState } from '@/lib/useFormState';
 import { useDeleteClient, useUpdateClient } from '../api';
@@ -21,6 +22,8 @@ export function ClientOverview({ client }: { client: Client }) {
   const deleteClient = useDeleteClient();
   const form = useFormState(() => toClientFormValues(client, undefined), validateClient);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const { data: invoices = [] } = useInvoices();
+  const hasInvoices = invoices.some((invoice) => invoice.client_id === client.id);
 
   function handleSave() {
     const values = form.check();
@@ -40,7 +43,13 @@ export function ClientOverview({ client }: { client: Client }) {
         toast.success('Client deleted.');
         navigate('/clients', { replace: true });
       },
-      onError: (error) => toast.error(`Couldn't delete the client. ${errorMessage(error)}`),
+      onError: (error) =>
+        toast.error(
+          // 23503: still referenced by invoices (added since this page loaded)
+          (error as { code?: string }).code === '23503'
+            ? "This client has invoices, so it can't be deleted. Set the status to Churned instead."
+            : `Couldn't delete the client. ${errorMessage(error)}`,
+        ),
     });
   }
 
@@ -59,20 +68,30 @@ export function ClientOverview({ client }: { client: Client }) {
         </Button>
       </div>
 
-      <Modal
-        open={confirmDelete}
-        onClose={() => setConfirmDelete(false)}
-        title="Delete this client?"
-        description={`This permanently removes ${client.business_name}, with all of its projects and tasks. The original lead stays in the pipeline. It can't be undone.`}
-        footer={
-          <>
-            <Button onClick={() => setConfirmDelete(false)}>Keep client</Button>
-            <Button variant="danger" icon={Trash2} loading={deleteClient.isPending} onClick={handleDelete}>
-              Delete client
-            </Button>
-          </>
-        }
-      />
+      {hasInvoices ? (
+        <Modal
+          open={confirmDelete}
+          onClose={() => setConfirmDelete(false)}
+          title="This client can't be deleted"
+          description={`${client.business_name} has invoices, and financial history is kept. Set the status to Churned instead.`}
+          footer={<Button onClick={() => setConfirmDelete(false)}>OK</Button>}
+        />
+      ) : (
+        <Modal
+          open={confirmDelete}
+          onClose={() => setConfirmDelete(false)}
+          title="Delete this client?"
+          description={`This permanently removes ${client.business_name}, with all of its projects and tasks. The original lead stays in the pipeline. It can't be undone.`}
+          footer={
+            <>
+              <Button onClick={() => setConfirmDelete(false)}>Keep client</Button>
+              <Button variant="danger" icon={Trash2} loading={deleteClient.isPending} onClick={handleDelete}>
+                Delete client
+              </Button>
+            </>
+          }
+        />
+      )}
     </div>
   );
 }

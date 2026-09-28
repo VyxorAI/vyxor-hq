@@ -303,6 +303,104 @@ export type Database = {
           },
         ];
       };
+      invoices: {
+        Row: {
+          id: string;
+          created_at: string;
+          updated_at: string | null;
+          client_id: string;
+          number: string;
+          type: Database['public']['Enums']['invoice_type'];
+          amount: number;
+          issued_on: string;
+          due_on: string | null;
+          paid_on: string | null;
+          status: Database['public']['Enums']['invoice_status'];
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string | null;
+          client_id: string;
+          /** Filled in by the database as VX-<year>-001 when omitted. */
+          number?: string;
+          type?: Database['public']['Enums']['invoice_type'];
+          amount: number;
+          issued_on?: string;
+          due_on?: string | null;
+          paid_on?: string | null;
+          status?: Database['public']['Enums']['invoice_status'];
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string | null;
+          client_id?: string;
+          number?: string;
+          type?: Database['public']['Enums']['invoice_type'];
+          amount?: number;
+          issued_on?: string;
+          due_on?: string | null;
+          paid_on?: string | null;
+          status?: Database['public']['Enums']['invoice_status'];
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'invoices_client_id_fkey';
+            columns: ['client_id'];
+            isOneToOne: false;
+            referencedRelation: 'clients';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      expenses: {
+        Row: {
+          id: string;
+          created_at: string;
+          updated_at: string | null;
+          description: string;
+          category: Database['public']['Enums']['expense_category'];
+          amount: number;
+          recurring: boolean;
+          date: string;
+          ends_on: string | null;
+          client_id: string | null;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string | null;
+          description: string;
+          category?: Database['public']['Enums']['expense_category'];
+          amount: number;
+          recurring?: boolean;
+          date?: string;
+          ends_on?: string | null;
+          client_id?: string | null;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string | null;
+          description?: string;
+          category?: Database['public']['Enums']['expense_category'];
+          amount?: number;
+          recurring?: boolean;
+          date?: string;
+          ends_on?: string | null;
+          client_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'expenses_client_id_fkey';
+            columns: ['client_id'];
+            isOneToOne: false;
+            referencedRelation: 'clients';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Views: { [_ in never]: never };
     Functions: {
@@ -354,6 +452,9 @@ export type Database = {
       project_status: 'planning' | 'building' | 'review' | 'live' | 'on_hold';
       task_status: 'todo' | 'doing' | 'done';
       task_priority: 'low' | 'medium' | 'high';
+      invoice_type: 'setup' | 'retainer' | 'other';
+      invoice_status: 'draft' | 'sent' | 'paid' | 'overdue';
+      expense_category: 'hosting' | 'api' | 'software' | 'marketing' | 'other';
     };
     CompositeTypes: { [_ in never]: never };
   };

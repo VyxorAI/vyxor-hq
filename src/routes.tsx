@@ -5,6 +5,8 @@ import { RequireAuth } from '@/features/auth/RequireAuth';
 import { ClientDetailPage } from '@/features/clients/ClientDetailPage';
 import { ClientsPage } from '@/features/clients/ClientsPage';
 import { LeadsPage } from '@/features/leads/LeadsPage';
+import { HomePage } from '@/features/home/HomePage';
+import { MoneyPage } from '@/features/money/MoneyPage';
 import { ComingSoon, NotFound } from '@/features/placeholder/ComingSoon';
 import { GeneralTasksPage } from '@/features/projects/GeneralTasksPage';
 import { ProjectDetailPage } from '@/features/projects/ProjectDetailPage';
@@ -20,7 +22,7 @@ export const router = createBrowserRouter([
       </RequireAuth>
     ),
     children: [
-      { index: true, element: <ComingSoon title="The home dashboard" phase="Phase 2" /> },
+      { index: true, element: <HomePage /> },
       { path: 'leads', element: <LeadsPage /> },
       { path: 'clients', element: <ClientsPage /> },
       { path: 'clients/:clientId', element: <ClientDetailPage /> },
@@ -28,7 +30,7 @@ export const router = createBrowserRouter([
       { path: 'projects/general', element: <GeneralTasksPage /> },
       { path: 'projects/:projectId', element: <ProjectDetailPage /> },
       { path: 'my-week', element: <MyWeekPage /> },
-      { path: 'money', element: <ComingSoon title="Money" phase="Phase 2" /> },
+      { path: 'money', element: <MoneyPage /> },
       { path: 'library', element: <ComingSoon title="The library" phase="Phase 3" /> },
       { path: '*', element: <NotFound /> },
     ],

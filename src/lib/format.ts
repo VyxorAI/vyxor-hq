@@ -8,6 +8,27 @@ export function formatZAR(value: number | null | undefined): string {
   return `${sign}R ${zarNumber.format(Math.abs(rounded))}`;
 }
 
+const compactNumber = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 });
+
+/** Short ZAR for axes: `R 12.5K`, `R 1.2M`. */
+export function formatZARCompact(value: number): string {
+  const sign = value < 0 ? '-' : '';
+  return `${sign}R ${compactNumber.format(Math.abs(value))}`;
+}
+
+const relativeTime = new Intl.RelativeTimeFormat('en-GB', { numeric: 'auto' });
+
+/** "just now", "5 minutes ago", "yesterday", "3 days ago"; older than a week shows the date. */
+export function formatRelative(timestamp: string): string {
+  const seconds = Math.round((new Date(timestamp).getTime() - Date.now()) / 1000);
+  const abs = Math.abs(seconds);
+  if (abs < 60) return 'just now';
+  if (abs < 3600) return relativeTime.format(Math.round(seconds / 60), 'minute');
+  if (abs < 86400) return relativeTime.format(Math.round(seconds / 3600), 'hour');
+  if (abs < 7 * 86400) return relativeTime.format(Math.round(seconds / 86400), 'day');
+  return formatShortDate(timestamp.slice(0, 10));
+}
+
 /** Today's date in local time as `YYYY-MM-DD`, matching Postgres `date` values. */
 export function todayISO(): string {
   const now = new Date();

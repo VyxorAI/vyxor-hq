@@ -63,9 +63,10 @@ export function useDeleteClient() {
       if (error) throw error;
     },
     onSuccess: () => {
-      // The client's projects and tasks are deleted with it
+      // The client's projects and tasks are deleted with it; its costs are unlinked
       void queryClient.invalidateQueries({ queryKey: ['projects'] });
       void queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      void queryClient.invalidateQueries({ queryKey: ['expenses'] });
       return queryClient.invalidateQueries({ queryKey: clientKeys.all });
     },
   });
