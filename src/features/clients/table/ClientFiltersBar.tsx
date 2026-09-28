@@ -1,0 +1,58 @@
+import { FilterX, Search } from 'lucide-react';
+import { Button } from '@/components/Button';
+import { Select } from '@/components/Input';
+import { useProfiles } from '@/features/auth/profiles';
+import { STATUS_OPTIONS } from '../constants';
+import type { ClientFilterKey, ClientFilters } from './filters';
+
+interface ClientFiltersBarProps {
+  filters: ClientFilters;
+  activeCount: number;
+  onChange: (key: ClientFilterKey, value: string) => void;
+  onClear: () => void;
+}
+
+export function ClientFiltersBar({ filters, activeCount, onChange, onClear }: ClientFiltersBarProps) {
+  const { data: profiles = [] } = useProfiles();
+  const ownerOptions = [
+    ...profiles.map((profile) => ({ value: profile.id, label: profile.full_name })),
+    { value: 'none', label: 'No owner' },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+      <div className="relative col-span-2 sm:w-56">
+        <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted" aria-hidden />
+        <input
+          type="search"
+          value={filters.q}
+          onChange={(event) => onChange('q', event.target.value)}
+          placeholder="Search name, contact, package"
+          aria-label="Search clients"
+          className="h-9 w-full rounded-control border border-border bg-raised pr-3 pl-8 text-sm text-primary focus:border-accent-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue/40"
+        />
+      </div>
+      <Select
+        aria-label="Filter by status"
+        placeholder="All statuses"
+        options={STATUS_OPTIONS}
+        value={filters.status}
+        onChange={(event) => onChange('status', event.target.value)}
+        className="sm:w-40"
+      />
+      <Select
+        aria-label="Filter by owner"
+        placeholder="All owners"
+        options={ownerOptions}
+        value={filters.owner}
+        onChange={(event) => onChange('owner', event.target.value)}
+        className="sm:w-36"
+      />
+      {activeCount > 0 && (
+        <Button variant="ghost" icon={FilterX} onClick={onClear} className="col-span-2 sm:col-span-1">
+          Clear filters
+        </Button>
+      )}
+    </div>
+  );
+}
