@@ -5,13 +5,14 @@ import { useClients } from '@/features/clients/api';
 import { monthlyRecurring } from '@/features/clients/table/filters';
 import { useLeads } from '@/features/leads/api';
 import { OPEN_STAGES } from '@/features/leads/constants';
-import { useInvoices } from '@/features/money/api';
+import { useExpenses, useInvoices } from '@/features/money/api';
 import { useProjects } from '@/features/projects/api';
 import { useTasks } from '@/features/tasks/api';
 import { TaskDrawerHost } from '@/features/tasks/TaskDrawerHost';
 import { addDaysISO, formatZAR, todayISO } from '@/lib/format';
 import { FollowUpsCard } from './FollowUpsCard';
 import { MyTasksCard } from './MyTasksCard';
+import { ProgressCard } from './progress/ProgressCard';
 import { PulseStrip } from './PulseStrip';
 import { RecentActivityCard } from './RecentActivityCard';
 
@@ -31,6 +32,7 @@ export function HomePage() {
   const tasksQuery = useTasks();
   const { data: projects = [] } = useProjects();
   const { data: invoices = [] } = useInvoices();
+  const { data: expenses = [] } = useExpenses();
   const { data: activities = [] } = useRecentActivities();
   const profiles = useProfileMap();
 
@@ -76,6 +78,8 @@ export function HomePage() {
           },
         ]}
       />
+
+      <ProgressCard invoices={invoices} expenses={expenses} leads={leads} clients={clients} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <FollowUpsCard leads={leads} />
