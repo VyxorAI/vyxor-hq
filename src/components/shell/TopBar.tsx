@@ -1,7 +1,7 @@
-import { useState, type FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus, Search } from 'lucide-react';
-import { Button } from '@/components/Button';
+import { Button, IconButton } from '@/components/Button';
+import { shortcutLabel, usePalette } from '@/features/palette/PaletteProvider';
 import { Logo } from './Logo';
 import { navItemFor } from './navItems';
 
@@ -15,37 +15,30 @@ function newActionFor(pathname: string): { label: string; to: string } {
   return { label: 'New lead', to: '/leads?new=1' };
 }
 
-/** Page title, lead search and the "+ New" action. */
+/** Page title, the search / command palette trigger and the "+ New" action. */
 export function TopBar() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const [query, setQuery] = useState('');
+  const palette = usePalette();
   const title = navItemFor(pathname)?.label ?? 'Vyxor HQ';
   const newAction = newActionFor(pathname);
-
-  function handleSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const params = new URLSearchParams({ view: 'table' });
-    if (query.trim()) params.set('q', query.trim());
-    navigate(`/leads?${params.toString()}`);
-  }
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-base/90 px-4 backdrop-blur md:px-6">
       <Logo className="size-7 shrink-0 md:hidden" />
       <h1 className="min-w-0 flex-1 truncate text-lg">{title}</h1>
 
-      <form role="search" onSubmit={handleSearch} className="relative hidden w-72 sm:block">
-        <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted" aria-hidden />
-        <input
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search leads"
-          aria-label="Search leads"
-          className="h-9 w-full rounded-control border border-border bg-surface pr-3 pl-8 text-sm text-primary focus:border-accent-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue/40"
-        />
-      </form>
+      {/* Looks like a search field; opens the command palette */}
+      <button
+        type="button"
+        onClick={palette.open}
+        className="hidden h-9 w-72 items-center gap-2 rounded-control border border-border bg-surface px-2.5 text-sm text-muted transition-colors hover:border-muted/50 sm:flex"
+      >
+        <Search className="size-4 shrink-0" aria-hidden />
+        <span className="flex-1 text-left">Search or jump to…</span>
+        <kbd className="rounded-[4px] border border-border px-1.5 py-0.5 text-[10px]">{shortcutLabel()}</kbd>
+      </button>
+      <IconButton icon={Search} label="Search" onClick={palette.open} className="sm:hidden" />
 
       <Button variant="primary" icon={Plus} onClick={() => navigate(newAction.to)}>
         <span className="hidden sm:inline">{newAction.label}</span>
