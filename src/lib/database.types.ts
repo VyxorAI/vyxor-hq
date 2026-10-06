@@ -443,6 +443,108 @@ export type Database = {
         };
         Relationships: [];
       };
+      prospect_searches: {
+        Row: {
+          id: string;
+          created_at: string;
+          updated_at: string | null;
+          category: string;
+          query: string;
+          area: string;
+          industry: Database['public']['Enums']['lead_industry'];
+          active: boolean;
+          last_run_at: string | null;
+          last_result_count: number | null;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string | null;
+          category: string;
+          query: string;
+          area: string;
+          industry?: Database['public']['Enums']['lead_industry'];
+          active?: boolean;
+          last_run_at?: string | null;
+          last_result_count?: number | null;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string | null;
+          category?: string;
+          query?: string;
+          area?: string;
+          industry?: Database['public']['Enums']['lead_industry'];
+          active?: boolean;
+          last_run_at?: string | null;
+          last_result_count?: number | null;
+        };
+        Relationships: [];
+      };
+      prospects: {
+        Row: {
+          id: string;
+          created_at: string;
+          updated_at: string | null;
+          place_id: string;
+          search_id: string | null;
+          business_name: string;
+          category: string | null;
+          area: string | null;
+          industry: Database['public']['Enums']['lead_industry'];
+          address: string | null;
+          phone: string | null;
+          phone_international: string | null;
+          website: string | null;
+          email: string | null;
+          rating: number | null;
+          review_count: number | null;
+          maps_url: string | null;
+          website_checked_at: string | null;
+          has_whatsapp: boolean | null;
+          has_booking: boolean | null;
+          suggested_offer: Database['public']['Enums']['lead_offer'];
+          pitch_reason: string | null;
+          score: number;
+          status: Database['public']['Enums']['prospect_status'];
+          do_not_contact: boolean;
+          lead_id: string | null;
+          contacted_at: string | null;
+          contacted_by: string | null;
+          last_seen_at: string;
+        };
+        Insert: {
+          id?: string;
+          place_id: string;
+          business_name: string;
+          [key: string]: unknown;
+        };
+        Update: {
+          status?: Database['public']['Enums']['prospect_status'];
+          do_not_contact?: boolean;
+          suggested_offer?: Database['public']['Enums']['lead_offer'];
+          email?: string | null;
+          phone?: string | null;
+          lead_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'prospects_search_id_fkey';
+            columns: ['search_id'];
+            isOneToOne: false;
+            referencedRelation: 'prospect_searches';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'prospects_lead_id_fkey';
+            columns: ['lead_id'];
+            isOneToOne: false;
+            referencedRelation: 'leads';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       activities: {
         Row: {
           id: string;
@@ -515,6 +617,15 @@ export type Database = {
         };
         Returns: undefined;
       };
+      convert_prospect_to_lead: {
+        Args: {
+          p_prospect_id: string;
+          p_channel: string;
+          p_note?: string;
+          p_follow_up?: string;
+        };
+        Returns: string;
+      };
       current_profile_id: {
         Args: Record<string, never>;
         Returns: string | null;
@@ -549,6 +660,7 @@ export type Database = {
       asset_type: 'proposal' | 'questionnaire' | 'guide' | 'prompt' | 'sop' | 'template' | 'other';
       activity_entity: 'lead' | 'client' | 'project';
       activity_kind: 'note' | 'call' | 'email' | 'stage_change' | 'status_change';
+      prospect_status: 'new' | 'converted' | 'dismissed';
     };
     CompositeTypes: { [_ in never]: never };
   };

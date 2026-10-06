@@ -3,6 +3,7 @@ import {
   FolderKanban,
   House,
   LibraryBig,
+  Radar,
   Target,
   Users,
   Wallet,
@@ -20,6 +21,7 @@ export interface NavItem {
 export const navItems: NavItem[] = [
   { to: '/', label: 'Home', icon: House, mobile: true },
   { to: '/leads', label: 'Leads', icon: Target, mobile: true },
+  { to: '/prospects', label: 'Prospects', icon: Radar, mobile: false },
   { to: '/clients', label: 'Clients', icon: Users, mobile: true },
   { to: '/projects', label: 'Projects', icon: FolderKanban, mobile: true },
   { to: '/my-week', label: 'My week', icon: CalendarCheck, mobile: false },

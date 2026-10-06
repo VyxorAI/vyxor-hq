@@ -9,12 +9,14 @@ import { LeadsPage } from '@/features/leads/LeadsPage';
 import { MoneyPage } from '@/features/money/MoneyPage';
 import { NotFound } from '@/features/placeholder/NotFound';
 import { GeneralTasksPage } from '@/features/projects/GeneralTasksPage';
+import { ProspectsPage } from '@/features/prospects/ProspectsPage';
 import { ProjectDetailPage } from '@/features/projects/ProjectDetailPage';
 import { ProjectsPage } from '@/features/projects/ProjectsPage';
 import { MyWeekPage } from '@/features/tasks/MyWeekPage';
 
 export const router = createBrowserRouter([
-  { path: '/login', element: <LoginPage /> },  {
+  { path: '/login', element: <LoginPage /> },
+  {
     path: '/',
     element: (
       <RequireAuth>
@@ -24,6 +26,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <HomePage /> },
       { path: 'leads', element: <LeadsPage /> },
+      { path: 'prospects', element: <ProspectsPage /> },
       { path: 'clients', element: <ClientsPage /> },
       { path: 'clients/:clientId', element: <ClientDetailPage /> },
       { path: 'projects', element: <ProjectsPage /> },
