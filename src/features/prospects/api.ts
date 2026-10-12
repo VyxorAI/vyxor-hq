@@ -4,13 +4,14 @@ import { leadKeys } from '@/features/leads/api';
 import { addDaysISO, todayISO } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 import type { LeadIndustry } from '@/features/leads/types';
-import type { ContactChannel, Prospect, ProspectSearch, ProspectTab } from './types';
+import type { ContactChannel, Prospect, ProspectSearch, ProspectSettings, ProspectTab } from './types';
 
 export const prospectKeys = {
   all: ['prospects'] as const,
   list: (tab: ProspectTab) => ['prospects', 'list', tab] as const,
   stats: ['prospects', 'stats'] as const,
   searches: ['prospect-searches'] as const,
+  settings: ['prospect-settings'] as const,
 };
 
 /** One tab of prospects, best first. */
@@ -188,5 +189,33 @@ export function useAddSearches() {
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: prospectKeys.searches }),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Settings (pause / resume the daily run)
+// ---------------------------------------------------------------------------
+
+export function useProspectSettings() {
+  return useQuery({
+    queryKey: prospectKeys.settings,
+    queryFn: async (): Promise<ProspectSettings> => {
+      const { data, error } = await supabase.from('prospect_settings').select('*').single();
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+/** Pause or resume the 06:00 run. "Find more now" keeps working either way. */
+export function useSetProspectsPaused() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (paused: boolean): Promise<ProspectSettings> => {
+      const { data, error } = await supabase.from('prospect_settings').update({ paused }).eq('id', true).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (settings) => queryClient.setQueryData(prospectKeys.settings, settings),
   });
 }

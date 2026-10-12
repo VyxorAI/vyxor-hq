@@ -2,7 +2,8 @@ import type { Enums, Tables } from '@/lib/database.types';
 
 export type Prospect = Tables<'prospects'>;
 export type ProspectSearch = Tables<'prospect_searches'>;
-export type ProspectStatus = Enums<'prospect_status'>;
+export type ProspectSettings = Tables<'prospect_settings'>;
+export type ProspectStatus =Enums<'prospect_status'>;
 
 /** List tabs: "do not contact" is a flag, shown as its own tab. */
 export type ProspectTab = 'new' | 'converted' | 'dismissed' | 'dnc';

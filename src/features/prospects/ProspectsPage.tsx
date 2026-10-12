@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertCircle, FilterX, Radar, Search, ShieldCheck, SlidersHorizontal } from 'lucide-react';
+import { AlertCircle, FilterX, Pause, Play, Radar, Search, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/Button';
 import { EmptyState } from '@/components/EmptyState';
 import { Select } from '@/components/Input';
@@ -15,7 +15,15 @@ import { errorMessage } from '@/lib/errors';
 import { formatRelative, todayISO } from '@/lib/format';
 import { oneOf, useUrlFilters } from '@/lib/useUrlFilters';
 import { useUpdateParams } from '@/lib/useUpdateParams';
-import { useProspects, useProspectSearches, useProspectStats, useRunProspectSearch, useUpdateProspect } from './api';
+import {
+  useProspects,
+  useProspectSearches,
+  useProspectSettings,
+  useProspectStats,
+  useRunProspectSearch,
+  useSetProspectsPaused,
+  useUpdateProspect,
+} from './api';
 import type { ProspectActionHandlers } from './components/bits';
 import { ContactedModal } from './components/ContactedModal';
 import { ProspectList } from './components/ProspectList';
@@ -49,6 +57,9 @@ export function ProspectsPage() {
   const { data: leads = [] } = useLeads();
   const updateProspect = useUpdateProspect();
   const runSearch = useRunProspectSearch();
+  const { data: settings } = useProspectSettings();
+  const setPaused = useSetProspectsPaused();
+  const paused = settings?.paused ?? false;
 
   const [contacting, setContacting] = useState<Prospect | null>(null);
   const [confirmDnc, setConfirmDnc] = useState<Prospect | null>(null);
@@ -117,7 +128,7 @@ export function ProspectsPage() {
       onSuccess: (result) => {
         setConfirmRun(false);
         if (result.errors.length > 0) toast.error(`Search stopped: ${result.errors[0]}`);
-        else if (result.searchesRun === 0) toast.error("Today's searches are used up. The next run is tomorrow at 06:00.");
+        else if (result.searchesRun === 0) toast.error(paused ? "Today's searches are used up." : "Today's searches are used up. The next run is tomorrow at 06:00.");
         else toast.success(`${result.added} new ${result.added === 1 ? 'prospect' : 'prospects'} from ${result.searchesRun} searches. ${result.searchesLeftToday} left today.`);
       },
       onError: (err) => {
@@ -126,6 +137,16 @@ export function ProspectsPage() {
       },
     });
   }
+
+  function togglePaused() {
+    setPaused.mutate(!paused, {
+      onSuccess: (next) =>
+        toast.success(next.paused ? 'Daily search paused. Find more now still works.' : 'Daily search resumed. Next run 06:00.'),
+      onError: (err) => toast.error(`Couldn't ${paused ? 'resume' : 'pause'} the daily search. ${errorMessage(err)}`),
+    });
+  }
+
+  const pausedBy = settings?.paused_by ? profiles.get(settings.paused_by)?.full_name.split(' ')[0] : undefined;
 
   const tabItems: ReadonlyArray<TabItem<ProspectTab>> = TABS.map((item) => ({
     value: item.value,
@@ -156,9 +177,11 @@ export function ProspectsPage() {
           icon={Radar}
           title={lastRun ? 'Everyone has been contacted' : 'No prospects yet'}
           description={
-            lastRun
-              ? 'New businesses are added every morning at 06:00.'
-              : 'The first search runs at 06:00 tomorrow, or you can find some now.'
+            paused
+              ? 'The daily search is paused. Resume it, or find some now.'
+              : lastRun
+                ? 'New businesses are added every morning at 06:00.'
+                : 'The first search runs at 06:00 tomorrow, or you can find some now.'
           }
           action={
             leftToday > 0 && (
@@ -197,12 +220,31 @@ export function ProspectsPage() {
         <p className="text-sm text-muted">
           {lastRun ? `Last searched ${formatRelative(lastRun)}` : 'Not searched yet'}
           {stats && ` · ${stats.newToday} new today`}
-          <span className="hidden sm:inline"> · next run 06:00</span>
+          {paused ? (
+            <span className="text-warning">
+              {' · '}daily search paused
+              {pausedBy && ` by ${pausedBy}`}
+              {settings?.paused_at && ` ${formatRelative(settings.paused_at)}`}
+            </span>
+          ) : (
+            <span className="hidden sm:inline"> · next run 06:00</span>
+          )}
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button icon={SlidersHorizontal} onClick={() => setShowSearches(true)}>
             Searches
           </Button>
+          {settings && (
+            <Button
+              icon={paused ? Play : Pause}
+              onClick={togglePaused}
+              loading={setPaused.isPending}
+              aria-pressed={paused}
+              title={paused ? 'Start the 06:00 daily search again' : 'Stop the 06:00 daily search until you resume it'}
+            >
+              {paused ? 'Resume daily search' : 'Pause daily search'}
+            </Button>
+          )}
           <Button icon={Radar} onClick={() => setConfirmRun(true)} disabled={leftToday === 0} title={leftToday === 0 ? "Today's searches are used up" : undefined}>
             Find more now
           </Button>
@@ -305,7 +347,7 @@ export function ProspectsPage() {
         open={confirmRun}
         onClose={() => !runSearch.isPending && setConfirmRun(false)}
         title="Find prospects now?"
-        description={`Runs up to ${leftToday} of today's ${SEARCHES_PER_DAY} searches. The 06:00 run shares the same limit, which keeps it inside Google's free allowance. This can take up to two minutes.`}
+        description={`Runs up to ${leftToday} of today's ${SEARCHES_PER_DAY} searches. ${paused ? 'The daily search stays paused.' : "The 06:00 run shares the same limit, which keeps it inside Google's free allowance."} This can take up to two minutes.`}
         footer={
           <>
             <Button onClick={() => setConfirmRun(false)} disabled={runSearch.isPending}>

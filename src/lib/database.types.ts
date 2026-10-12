@@ -482,6 +482,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      prospect_settings: {
+        Row: {
+          /** Always true: the table holds a single row. */
+          id: boolean;
+          updated_at: string | null;
+          paused: boolean;
+          paused_at: string | null;
+          paused_by: string | null;
+        };
+        Insert: {
+          id?: boolean;
+          updated_at?: string | null;
+          paused?: boolean;
+          paused_at?: string | null;
+          paused_by?: string | null;
+        };
+        Update: {
+          id?: boolean;
+          updated_at?: string | null;
+          paused?: boolean;
+          paused_at?: string | null;
+          paused_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'prospect_settings_paused_by_fkey';
+            columns: ['paused_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       prospects: {
         Row: {
           id: string;
