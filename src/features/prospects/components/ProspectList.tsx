@@ -15,12 +15,21 @@ interface ProspectListProps {
   tab: ProspectTab;
   handlers: ProspectActionHandlers;
   profiles: Map<string, Profile>;
+  /** Open the business's details. */
+  onOpen: (prospect: Prospect) => void;
 }
 
-function Business({ prospect }: { prospect: Prospect }) {
+function Business({ prospect, onOpen }: { prospect: Prospect; onOpen: (prospect: Prospect) => void }) {
   return (
     <div className="min-w-0">
-      <p className="font-medium break-words">{prospect.business_name}</p>
+      <button
+        type="button"
+        onClick={() => onOpen(prospect)}
+        title="View details"
+        className="text-left font-medium break-words hover:text-accent-blue hover:underline"
+      >
+        {prospect.business_name}
+      </button>
       <p className="truncate text-xs text-muted">{[prospect.category, prospect.area].filter(Boolean).join(' · ')}</p>
     </div>
   );
@@ -47,7 +56,7 @@ function ContactedBy({ prospect, profiles }: { prospect: Prospect; profiles: Map
 }
 
 /** Table on desktop, cards on phones (where click-to-call matters most). */
-export function ProspectList({ prospects, tab, handlers, profiles }: ProspectListProps) {
+export function ProspectList({ prospects, tab, handlers, profiles, onOpen }: ProspectListProps) {
   return (
     <>
       {/* Desktop */}
@@ -69,7 +78,7 @@ export function ProspectList({ prospects, tab, handlers, profiles }: ProspectLis
             {prospects.map((prospect) => (
               <tr key={prospect.id} className="border-b border-border align-top last:border-b-0 hover:bg-raised/40">
                 <td className="max-w-64 px-3 py-3">
-                  <Business prospect={prospect} />
+                  <Business prospect={prospect} onOpen={onOpen} />
                 </td>
                 <td className="px-3 py-3">
                   <PriorityBadge score={prospect.score} />
@@ -100,7 +109,7 @@ export function ProspectList({ prospects, tab, handlers, profiles }: ProspectLis
         {prospects.map((prospect) => (
           <li key={prospect.id} className="flex flex-col gap-3 rounded-card border border-border bg-surface p-3">
             <div className="flex items-start justify-between gap-2">
-              <Business prospect={prospect} />
+              <Business prospect={prospect} onOpen={onOpen} />
               <PriorityBadge score={prospect.score} />
             </div>
             <Rating prospect={prospect} />

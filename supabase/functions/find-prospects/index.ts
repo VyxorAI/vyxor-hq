@@ -4,8 +4,12 @@
 // from the Prospects page. It:
 //   1. runs up to SEARCHES_PER_DAY Google Places text searches (oldest first),
 //   2. saves new businesses, skipping ones already in prospects, leads or clients,
-//   3. checks each new website once for a published email, WhatsApp and online booking,
+//   3. checks each new website once for a published email, WhatsApp, online booking
+//      and the site's own description,
 //   4. suggests what to pitch.
+//
+// PUT { prospectId } reads one business's website for its description (signed-in
+// founders only). It uses no Google searches, so it works while the daily run is paused.
 //
 // Secrets (Supabase dashboard > Edge Functions > Secrets):
 //   GOOGLE_PLACES_API_KEY  required
@@ -17,7 +21,9 @@
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import {
   BOOKING_PATTERN,
+  cleanDescription,
   findContactUrl,
+  findDescription,
   findEmail,
   phoneKey,
   suggestPitch,
@@ -25,7 +31,7 @@ import {
   websiteKey,
 } from './lib.ts';
 
-/** Stays well inside Google's free 1,000 "Text Search Enterprise" requests a month (15 x 31 = 465). */
+/** Stays well inside Google's free 1,000 "Text Search Enterprise + Atmosphere" requests a month (15 x 31 = 465). */
 const SEARCHES_PER_DAY = 15;
 /** Websites checked per run; the rest wait for the next run. */
 const CRAWL_LIMIT = 60;
@@ -36,7 +42,8 @@ const DEADLINE_MS = 110_000;
 const MAX_HTML_CHARS = 400_000;
 
 const PLACES_URL = 'https://places.googleapis.com/v1/places:searchText';
-// Enterprise-tier fields (phone, website, rating). Billed per request, not per result.
+// Enterprise-tier fields (phone, website, rating) plus Google's summary, which puts the
+// request in the Enterprise + Atmosphere tier. Billed per request, not per result.
 const FIELD_MASK = [
   'places.id',
   'places.displayName',
@@ -48,12 +55,13 @@ const FIELD_MASK = [
   'places.userRatingCount',
   'places.googleMapsUri',
   'places.businessStatus',
+  'places.editorialSummary',
 ].join(',');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'POST, PUT, OPTIONS',
 };
 
 function json(body: unknown, status = 200) {
@@ -75,6 +83,7 @@ interface Place {
   userRatingCount?: number;
   googleMapsUri?: string;
   businessStatus?: string;
+  editorialSummary?: { text?: string };
 }
 
 async function searchPlaces(apiKey: string, textQuery: string): Promise<Place[]> {
@@ -118,29 +127,78 @@ interface WebsiteCheck {
   /** null = the site didn't load */
   has_whatsapp: boolean | null;
   has_booking: boolean | null;
+  /** What the home page says about the business. */
+  description: string | null;
 }
 
-async function checkWebsite(website: string): Promise<WebsiteCheck> {
+const SITE_DID_NOT_LOAD: WebsiteCheck = { email: null, has_whatsapp: null, has_booking: null, description: null };
+
+/** `contactPage: false` reads the home page only (quicker, for a single lookup). */
+async function checkWebsite(website: string, contactPage = true): Promise<WebsiteCheck> {
   let origin: string;
   try {
     origin = new URL(website.startsWith('http') ? website : `https://${website}`).origin;
   } catch {
-    return { email: null, has_whatsapp: null, has_booking: null };
+    return SITE_DID_NOT_LOAD;
   }
   const home = await fetchPage(website.startsWith('http') ? website : origin);
-  if (!home) return { email: null, has_whatsapp: null, has_booking: null };
+  if (!home) return SITE_DID_NOT_LOAD;
 
   const host = websiteKey(origin);
   let email = findEmail(home, host);
   let pages = home;
-  if (!email) {
+  if (!email && contactPage) {
     const contact = await fetchPage(findContactUrl(home, origin));
     if (contact) {
       email = findEmail(contact, host);
       pages += contact;
     }
   }
-  return { email, has_whatsapp: WHATSAPP_PATTERN.test(pages), has_booking: BOOKING_PATTERN.test(pages) };
+  return {
+    email,
+    has_whatsapp: WHATSAPP_PATTERN.test(pages),
+    has_booking: BOOKING_PATTERN.test(pages),
+    description: findDescription(home),
+  };
+}
+
+/** Their own words replace Google's summary; either way, note that the site has been read. */
+function descriptionFields(found: string | null, now: string) {
+  return {
+    description_checked_at: now,
+    ...(found ? { description: found, description_source: 'website' } : {}),
+  };
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Read one business's website for its description, the first time someone opens it. */
+async function describeProspect(supabase: SupabaseClient, prospectId: unknown): Promise<Response> {
+  if (typeof prospectId !== 'string' || !UUID_PATTERN.test(prospectId)) return json({ error: 'prospectId is required.' }, 400);
+  const { data: prospect, error } = await supabase.from('prospects').select('*').eq('id', prospectId).maybeSingle();
+  if (error) return json({ error: error.message }, 500);
+  if (!prospect) return json({ error: 'Prospect not found.' }, 404);
+  if (prospect.description_checked_at) return json(prospect);
+
+  const now = new Date().toISOString();
+  let changes: Record<string, unknown> = { description_checked_at: now };
+  if (prospect.website) {
+    const firstCheck = !prospect.website_checked_at;
+    const { description, ...check } = await checkWebsite(prospect.website, firstCheck);
+    changes = { ...descriptionFields(description, now), email: prospect.email ?? check.email };
+    if (firstCheck) {
+      const pitch = suggestPitch({ ...prospect, ...check, website_checked_at: now });
+      changes = { ...changes, ...check, email: check.email ?? prospect.email, website_checked_at: now, ...pitch };
+    }
+  }
+  const { data: updated, error: updateError } = await supabase
+    .from('prospects')
+    .update(changes)
+    .eq('id', prospectId)
+    .select()
+    .single();
+  if (updateError) return json({ error: updateError.message }, 500);
+  return json(updated);
 }
 
 /** Run `work` over items with at most `size` at once, not starting new items after `stopAt`. */
@@ -180,7 +238,7 @@ async function authorise(req: Request, supabase: SupabaseClient): Promise<'sched
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
-  if (req.method !== 'POST') return json({ error: 'Use POST.' }, 405);
+  if (req.method !== 'POST' && req.method !== 'PUT') return json({ error: 'Use POST.' }, 405);
 
   const started = Date.now();
   const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
@@ -189,6 +247,16 @@ Deno.serve(async (req) => {
 
   const trigger = await authorise(req, supabase);
   if (!trigger) return json({ error: 'Not allowed.' }, 401);
+
+  if (req.method === 'PUT') {
+    if (trigger !== 'manual') return json({ error: 'Not allowed.' }, 401);
+    try {
+      const body = (await req.json().catch(() => null)) as { prospectId?: unknown } | null;
+      return await describeProspect(supabase, body?.prospectId);
+    } catch (error) {
+      return json({ error: error instanceof Error ? error.message : String(error) }, 500);
+    }
+  }
 
   const apiKey = Deno.env.get('GOOGLE_PLACES_API_KEY');
   if (!apiKey) return json({ error: 'GOOGLE_PLACES_API_KEY is not set in the Edge Function secrets.' }, 500);
@@ -202,12 +270,10 @@ Deno.serve(async (req) => {
     const budget = Math.max(0, SEARCHES_PER_DAY - (usedToday ?? 0));
 
     // --- Known businesses ------------------------------------------------------
-    const [{ data: existing }, { data: leads }, { data: clients }] = await Promise.all([
-      supabase.from('prospects').select('id, place_id'),
+    const [{ data: leads }, { data: clients }] = await Promise.all([
       supabase.from('leads').select('phone, website'),
       supabase.from('clients').select('phone, website'),
     ]);
-    const prospectByPlace = new Map((existing ?? []).map((row) => [row.place_id as string, row.id as string]));
     const knownPhones = new Set<string>();
     const knownSites = new Set<string>();
     for (const row of [...(leads ?? []), ...(clients ?? [])]) {
@@ -245,8 +311,18 @@ Deno.serve(async (req) => {
       searchesRun++;
       let found = 0;
 
+      // Which of these we already have (looked up per search, so it scales past 1,000 prospects)
+      const { data: existing } = await supabase
+        .from('prospects')
+        .select('id, place_id, description')
+        .in('place_id', places.map((place) => place.id));
+      const prospectByPlace = new Map(
+        (existing ?? []).map((row) => [row.place_id as string, { id: row.id as string, described: Boolean(row.description) }]),
+      );
+
       for (const place of places) {
         if (place.businessStatus && place.businessStatus !== 'OPERATIONAL') continue;
+        const summary = cleanDescription(place.editorialSummary?.text);
         const known = prospectByPlace.get(place.id);
         if (known) {
           await supabase
@@ -255,8 +331,9 @@ Deno.serve(async (req) => {
               rating: place.rating ?? null,
               review_count: place.userRatingCount ?? null,
               last_seen_at: new Date().toISOString(),
+              ...(summary && !known.described ? { description: summary, description_source: 'google' } : {}),
             })
-            .eq('id', known);
+            .eq('id', known.id);
           refreshed++;
           continue;
         }
@@ -279,11 +356,13 @@ Deno.serve(async (req) => {
           rating: place.rating ?? null,
           review_count: place.userRatingCount ?? null,
           maps_url: place.googleMapsUri ?? null,
+          description: summary,
+          description_source: summary ? 'google' : null,
         };
         const pitch = suggestPitch({ ...row, website_checked_at: null, has_whatsapp: null, has_booking: null });
         const { data: inserted, error } = await supabase.from('prospects').insert({ ...row, ...pitch }).select('id').single();
         if (!error && inserted) {
-          prospectByPlace.set(place.id, inserted.id);
+          prospectByPlace.set(place.id, { id: inserted.id, described: Boolean(summary) });
           if (pKey) knownPhones.add(pKey);
           if (sKey) knownSites.add(sKey);
           added++;
@@ -312,12 +391,18 @@ Deno.serve(async (req) => {
       unchecked ?? [],
       CRAWL_CONCURRENCY,
       async (prospect) => {
-        const result = await checkWebsite(prospect.website);
+        const { description, ...check } = await checkWebsite(prospect.website);
         const now = new Date().toISOString();
-        const pitch = suggestPitch({ ...prospect, ...result, website_checked_at: now });
+        const pitch = suggestPitch({ ...prospect, ...check, website_checked_at: now });
         await supabase
           .from('prospects')
-          .update({ ...result, email: result.email ?? prospect.email, website_checked_at: now, ...pitch })
+          .update({
+            ...check,
+            email: check.email ?? prospect.email,
+            website_checked_at: now,
+            ...descriptionFields(description, now),
+            ...pitch,
+          })
           .eq('id', prospect.id);
         checked++;
       },

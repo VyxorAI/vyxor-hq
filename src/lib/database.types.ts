@@ -546,6 +546,11 @@ export type Database = {
           contacted_at: string | null;
           contacted_by: string | null;
           last_seen_at: string;
+          description: string | null;
+          /** 'website' or 'google'. */
+          description_source: string | null;
+          /** When their website was read for a description; null = not yet. */
+          description_checked_at: string | null;
         };
         Insert: {
           id?: string;

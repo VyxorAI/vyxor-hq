@@ -112,6 +112,45 @@ export function useUpdateProspect() {
   });
 }
 
+/** A function error carrying the function's own message ("GOOGLE_PLACES_API_KEY is not set…") instead of a generic one. */
+async function functionError(error: unknown): Promise<unknown> {
+  if (!(error instanceof FunctionsHttpError)) return error;
+  const body = (await error.context.json().catch(() => null)) as { error?: string } | null;
+  return new Error(body?.error ?? error.message);
+}
+
+/** True until their website has been read for a description. */
+export function needsDescriptionLookup(prospect: Prospect): boolean {
+  return !prospect.description_checked_at && Boolean(prospect.website);
+}
+
+/**
+ * Reads the business's website for its description the first time it's opened, and saves it.
+ * Uses no Google searches. A query rather than a mutation, so it runs once per prospect.
+ */
+export function useProspectDescription(prospect: Prospect | null) {
+  const queryClient = useQueryClient();
+  return useQuery({
+    queryKey: ['prospect-description', prospect?.id],
+    enabled: prospect !== null && needsDescriptionLookup(prospect),
+    staleTime: Infinity,
+    retry: false,
+    queryFn: async (): Promise<Prospect> => {
+      // PUT, so a not-yet-redeployed function refuses it instead of running a search
+      const { data, error } = await supabase.functions.invoke<Prospect>('find-prospects', {
+        method: 'PUT',
+        body: { prospectId: prospect?.id },
+      });
+      if (error) throw await functionError(error);
+      const updated = data as Prospect;
+      queryClient.setQueriesData<Prospect[]>({ queryKey: ['prospects', 'list'] }, (rows) =>
+        rows?.map((row) => (row.id === updated.id ? updated : row)),
+      );
+      return updated;
+    },
+  });
+}
+
 export interface RunResult {
   searchesRun: number;
   searchesLeftToday: number;
@@ -127,14 +166,7 @@ export function useRunProspectSearch() {
   return useMutation({
     mutationFn: async (): Promise<RunResult> => {
       const { data, error } = await supabase.functions.invoke<RunResult>('find-prospects', { body: { trigger: 'manual' } });
-      if (error) {
-        // Surface the function's own message ("GOOGLE_PLACES_API_KEY is not set…") instead of a generic one
-        if (error instanceof FunctionsHttpError) {
-          const body = (await error.context.json().catch(() => null)) as { error?: string } | null;
-          throw new Error(body?.error ?? error.message);
-        }
-        throw error;
-      }
+      if (error) throw await functionError(error);
       return data as RunResult;
     },
     onSettled: () => {

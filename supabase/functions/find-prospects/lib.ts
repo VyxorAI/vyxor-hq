@@ -129,3 +129,51 @@ export function findContactUrl(html: string, origin: string): string {
   }
   return `${origin}/contact`;
 }
+
+// ---------------------------------------------------------------------------
+// Description (what the business says about itself)
+// ---------------------------------------------------------------------------
+
+const DESCRIPTION_KEYS = ['description', 'og:description', 'twitter:description'];
+const DESCRIPTION_MIN_CHARS = 25;
+const DESCRIPTION_MAX_CHARS = 320;
+/** Placeholder text left in by site builders. */
+const DESCRIPTION_JUNK = /just another wordpress site|coming soon|under construction|lorem ipsum|domain (is )?for sale/i;
+const ENTITIES: Record<string, string> = { amp: '&', quot: '"', apos: "'", lt: '<', gt: '>', nbsp: ' ' };
+
+function metaAttribute(tag: string, name: string): string | null {
+  const match = tag.match(new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, 'i'));
+  return match ? (match[1] ?? match[2]) : null;
+}
+
+function decodeEntities(text: string): string {
+  return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (entity, code: string) => {
+    if (code[0] !== '#') return ENTITIES[code.toLowerCase()] ?? entity;
+    const point = code[1].toLowerCase() === 'x' ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
+    return point > 0 && point <= 0x10ffff ? String.fromCodePoint(point) : entity;
+  });
+}
+
+/** Plain text, one line, cut at a word if it runs long. Null if it says nothing useful. */
+export function cleanDescription(raw: string | null | undefined): string | null {
+  const text = decodeEntities(raw ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  if (text.length < DESCRIPTION_MIN_CHARS || DESCRIPTION_JUNK.test(text)) return null;
+  if (text.length <= DESCRIPTION_MAX_CHARS) return text;
+  const cut = text.slice(0, DESCRIPTION_MAX_CHARS);
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), DESCRIPTION_MAX_CHARS - 40)).replace(/[\s,;:.-]+$/, '')}…`;
+}
+
+/** The page's own summary: meta description, then the social-sharing ones. */
+export function findDescription(html: string): string | null {
+  const found = new Map<string, string>();
+  for (const [tag] of html.matchAll(/<meta\b[^>]*>/gi)) {
+    const key = (metaAttribute(tag, 'name') ?? metaAttribute(tag, 'property') ?? '').toLowerCase();
+    const content = metaAttribute(tag, 'content');
+    if (content && DESCRIPTION_KEYS.includes(key) && !found.has(key)) found.set(key, content);
+  }
+  for (const key of DESCRIPTION_KEYS) {
+    const text = cleanDescription(found.get(key));
+    if (text) return text;
+  }
+  return null;
+}

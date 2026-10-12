@@ -26,6 +26,7 @@ import {
 } from './api';
 import type { ProspectActionHandlers } from './components/bits';
 import { ContactedModal } from './components/ContactedModal';
+import { ProspectDrawer } from './components/ProspectDrawer';
 import { ProspectList } from './components/ProspectList';
 import { SearchesDrawer } from './components/SearchesDrawer';
 import { SEARCHES_PER_DAY, TABS } from './constants';
@@ -42,6 +43,14 @@ const SORT_OPTIONS = [
   { value: 'reviews', label: 'Most reviews' },
   { value: 'newest', label: 'Newest first' },
 ] as const;
+
+/** How the filtered-count line names each tab's total. */
+const FILTER_TOTAL_LABEL: Record<ProspectTab, string> = {
+  new: 'to contact',
+  converted: 'moved to leads',
+  dismissed: 'marked not a fit',
+  dnc: 'marked do not contact',
+};
 
 /** /prospects: businesses found daily on Google, ready to call. */
 export function ProspectsPage() {
@@ -61,6 +70,7 @@ export function ProspectsPage() {
   const setPaused = useSetProspectsPaused();
   const paused = settings?.paused ?? false;
 
+  const [openId, setOpenId] = useState<string | null>(null);
   const [contacting, setContacting] = useState<Prospect | null>(null);
   const [confirmDnc, setConfirmDnc] = useState<Prospect | null>(null);
   const [confirmClearDnc, setConfirmClearDnc] = useState<Prospect | null>(null);
@@ -70,6 +80,7 @@ export function ProspectsPage() {
 
   const setTab = (next: ProspectTab) => {
     setShown(PAGE_SIZE);
+    setOpenId(null);
     updateParams((p) => (next === 'new' ? p.delete('tab') : p.set('tab', next)), true);
   };
 
@@ -102,6 +113,10 @@ export function ProspectsPage() {
       : values.sort === 'newest'
         ? [...filtered].sort((a, b) => b.created_at.localeCompare(a.created_at))
         : filtered; // priority: already ordered by the query
+  // Read from the list so the details update when the description arrives
+  const opened = prospects?.find((prospect) => prospect.id === openId) ?? null;
+  // The whole tab, which can be more than the list holds
+  const tabTotal = Math.max(prospects?.length ?? 0, tab === 'new' ? (stats?.toContact ?? 0) : 0);
 
   // --- Actions ------------------------------------------------------------------
   function update(prospect: Prospect, changes: { status?: Prospect['status']; do_not_contact?: boolean }, message: string) {
@@ -199,7 +214,13 @@ export function ProspectsPage() {
   } else {
     body = (
       <div className="flex flex-col gap-3">
-        <ProspectList prospects={sorted.slice(0, shown)} tab={tab} handlers={handlers} profiles={profiles} />
+        <ProspectList
+          prospects={sorted.slice(0, shown)}
+          tab={tab}
+          handlers={handlers}
+          profiles={profiles}
+          onOpen={(prospect) => setOpenId(prospect.id)}
+        />
         <div className="flex items-center justify-between gap-2 text-xs text-muted">
           <span className="tabular-nums">
             Showing {Math.min(shown, sorted.length)} of {sorted.length}
@@ -294,9 +315,20 @@ export function ProspectsPage() {
             )}
           </div>
 
+          {activeCount > 0 && prospects && (
+            <p className="text-sm text-muted" aria-live="polite">
+              <span className="font-medium text-primary tabular-nums">{sorted.length.toLocaleString('en-ZA')}</span>{' '}
+              {sorted.length === 1 ? 'matches' : 'match'} your filters, of{' '}
+              <span className="tabular-nums">{tabTotal.toLocaleString('en-ZA')}</span> {FILTER_TOTAL_LABEL[tab]}
+              {tabTotal > prospects.length && ` (counted in the top ${prospects.length.toLocaleString('en-ZA')} by priority)`}
+            </p>
+          )}
+
           {body}
         </div>
       </div>
+
+      <ProspectDrawer prospect={opened} tab={tab} handlers={handlers} onClose={() => setOpenId(null)} />
 
       <ContactedModal prospect={contacting} onClose={() => setContacting(null)} />
 
